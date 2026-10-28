@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.workers.cleanup import cleanup_expired
 from app.workers.import_csv import import_csv
 from app.workers.outbox import process_outbox_batch, purge_processed_outbox
+from app.workers.s3_cleanup import process_s3_deletions
 
 
 def _redis_settings() -> RedisSettings:
@@ -33,6 +34,7 @@ class WorkerSettings:
         process_outbox_batch,
         purge_processed_outbox,
         import_csv,
+        process_s3_deletions,
     ]
     redis_settings = _redis_settings()
     cron_jobs = [
@@ -42,4 +44,6 @@ class WorkerSettings:
         cron(process_outbox_batch, second={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
         # Daily retention of processed outbox rows older than 7 days.
         cron(purge_processed_outbox, hour={3}, minute={15}),
+        # Drain S3 deletion queue every 30 seconds.
+        cron(process_s3_deletions, second={0, 30}),
     ]

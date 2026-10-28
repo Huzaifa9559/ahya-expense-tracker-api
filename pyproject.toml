@@ -42,13 +42,15 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 # Same loop for tests + session-scoped engine (avoids asyncpg "different loop" errors).
 asyncio_default_test_loop_scope = "session"
-# Phase 0: cov-fail-under=0. Restore to 85 in Phase 10 (PLAN.md §4).
-addopts = "--cov=app --cov-report=term-missing --cov-fail-under=0"
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=85"
 testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["app"]
 branch = true
+# SQLAlchemy async runs business code inside greenlets; without this, service
+# coverage is badly under-counted even when tests exercise those lines.
+concurrency = ["greenlet"]
 
 [tool.coverage.report]
 show_missing = true

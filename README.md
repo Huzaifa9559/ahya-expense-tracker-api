@@ -49,7 +49,7 @@ unset ALEMBIC_DATABASE_URL
 pytest
 ```
 
-**Coverage note (Phase 0):** `--cov-fail-under` is temporarily `0` in `pyproject.toml` because only the scaffold exists. **Restore to `85` in Phase 10** per PLAN.md §4.
+Coverage gate: `--cov-fail-under=85` in `pyproject.toml` (PLAN.md §4).
 
 ## Auth notes
 
@@ -69,7 +69,16 @@ pytest
 - Phase 6: ETag / If-Match PATCH (Postgres 16 CTE + `FOR UPDATE`) — done
 - Phase 7: outbox worker + budget notifications — done
 - Phase 8: bulk CSV import (S3 + arq worker) — done
-- Phases 9–10: see [PLAN.md](PLAN.md)
+- Phase 9: S3 receipts (presigned POST, confirm, deletion queue) — done
+- Phase 10: see [PLAN.md](PLAN.md)
+
+## Receipts
+
+- Flow: `POST …/receipt/upload-url` → client POSTs the file to S3 with the returned fields → `POST …/receipt/confirm` (server `head` + magic bytes + extension match) → `GET …/receipt` for a 15-minute presigned GET.
+- **Presigned POST (not PUT)** so the policy can enforce `content-length-range` (1..5_242_880) plus exact `Content-Type` and the **exact** server-chosen key (not `starts-with`). Confirm re-checks size via `head` and magic/extension as a second layer (moto may not enforce the policy).
+- **Confirm bumps `version` / ETag.** Attaching or replacing a receipt changes the expense; a client holding an older ETag correctly gets 412 on its next PATCH.
+- Replacing a receipt or deleting an expense enqueues the old key in `s3_deletion_queue`. Worker every 30s: `FOR UPDATE SKIP LOCKED`, `delete_object`, exponential backoff `min(2^attempts, 60)` minutes on failure. S3 delete of a missing key succeeds (idempotent).
+- **Known gap — orphaned uploads:** a client that fetches an upload URL but never confirms leaves an unreferenced object under `receipts/`. An S3 lifecycle rule cannot tell confirmed from unconfirmed keys under the same prefix. Fix (not built): a nightly reconciliation that lists `receipts/` and deletes keys older than 24h that no expense references.
 
 ## CSV import notes
 

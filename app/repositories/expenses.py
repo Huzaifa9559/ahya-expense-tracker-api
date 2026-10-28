@@ -128,6 +128,34 @@ async def delete(session: AsyncSession, expense: Expense) -> None:
     await session.flush()
 
 
+async def set_receipt_key(
+    session: AsyncSession,
+    *,
+    expense_id: uuid.UUID,
+    user_id: uuid.UUID,
+    receipt_key: str,
+) -> Expense | None:
+    """Attach/replace receipt_key and bump version (confirm changes the ETag)."""
+    result = await session.execute(
+        text(
+            """
+            UPDATE expenses
+            SET receipt_key = :receipt_key,
+                version = version + 1,
+                updated_at = now()
+            WHERE id = :id AND user_id = :uid
+            RETURNING id
+            """
+        ),
+        {"id": expense_id, "uid": user_id, "receipt_key": receipt_key},
+    )
+    if result.first() is None:
+        return None
+    # Core UPDATE bypasses the identity map — expire so the next load is fresh.
+    session.expire_all()
+    return await get_by_id_for_user(session, expense_id=expense_id, user_id=user_id)
+
+
 async def list_for_user(
     session: AsyncSession,
     *,

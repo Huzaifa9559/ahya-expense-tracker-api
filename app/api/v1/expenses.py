@@ -16,8 +16,15 @@ from app.schemas.expenses import (
 )
 from app.schemas.imports import ImportJobAccepted
 from app.schemas.money import parse_decimal
+from app.schemas.receipts import (
+    ReceiptConfirmRequest,
+    ReceiptDownloadResponse,
+    ReceiptUploadUrlRequest,
+    ReceiptUploadUrlResponse,
+)
 from app.services import expenses as expenses_service
 from app.services import imports as imports_service
+from app.services import receipts as receipts_service
 from app.services.etags import format_etag, parse_if_match
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
@@ -113,6 +120,45 @@ async def list_expenses(
         max_amount=_optional_money(max_amount),
         currency=currency,
         q=q,
+    )
+
+
+@router.post(
+    "/{expense_id}/receipt/upload-url",
+    response_model=ReceiptUploadUrlResponse,
+)
+async def receipt_upload_url(
+    expense_id: uuid.UUID,
+    body: ReceiptUploadUrlRequest,
+    session: DbSession,
+    user: CurrentUser,
+) -> ReceiptUploadUrlResponse:
+    return await receipts_service.create_upload_url(
+        session, user, expense_id=expense_id, body=body
+    )
+
+
+@router.post("/{expense_id}/receipt/confirm", response_model=ExpenseResponse)
+async def receipt_confirm(
+    expense_id: uuid.UUID,
+    body: ReceiptConfirmRequest,
+    session: DbSession,
+    user: CurrentUser,
+    response: Response,
+) -> ExpenseResponse:
+    return await receipts_service.confirm_receipt(
+        session, user, expense_id=expense_id, body=body, response=response
+    )
+
+
+@router.get("/{expense_id}/receipt", response_model=ReceiptDownloadResponse)
+async def receipt_download(
+    expense_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> ReceiptDownloadResponse:
+    return await receipts_service.download_receipt(
+        session, user, expense_id=expense_id
     )
 
 
