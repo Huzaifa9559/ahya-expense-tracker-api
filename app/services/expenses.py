@@ -17,8 +17,14 @@ from app.repositories import expenses as expenses_repo
 from app.repositories import idempotency as idempotency_repo
 from app.repositories import outbox as outbox_repo
 from app.repositories import s3_deletion_queue as s3_queue_repo
-from app.schemas.expenses import ExpenseCreate, ExpenseListResponse, ExpenseResponse
+from app.schemas.expenses import (
+    ExpenseCreate,
+    ExpenseListResponse,
+    ExpenseResponse,
+    ExpenseUpdate,
+)
 from app.services import cursors
+from app.services.etags import format_etag
 
 _IDEMPOTENCY_TTL = timedelta(hours=24)
 
@@ -44,6 +50,25 @@ def _expense_response(row: Expense) -> ExpenseResponse:
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
+
+
+def _expense_response_from_row(row: dict) -> ExpenseResponse:
+    return ExpenseResponse(
+        id=str(row["id"]),
+        category_id=str(row["category_id"]),
+        amount=row["amount"],
+        currency=row["currency"],
+        description=row["description"],
+        spent_on=row["spent_on"],
+        receipt_key=row["receipt_key"],
+        version=int(row["version"]),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def _month_start(d: date) -> date:
+    return date(d.year, d.month, 1)
 
 
 def request_hash(body: ExpenseCreate) -> str:
@@ -247,6 +272,101 @@ async def get_expense(
     if expense is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found")
     return _expense_response(expense)
+
+
+async def patch_expense(
+    session: AsyncSession,
+    user: User,
+    *,
+    expense_id: uuid.UUID,
+    body: ExpenseUpdate,
+    expected_version: int,
+) -> tuple[ExpenseResponse, str]:
+    if body.category_id is not None:
+        category = await categories_repo.get_by_id_for_user(
+            session, category_id=body.category_id, user_id=user.id
+        )
+        if category is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Category not found"
+            )
+
+    # Load current only when currency/spent_on may change, to know effective values
+    # for rate checks — existence for 404 vs 412 is decided after the versioned UPDATE.
+    needs_rate_check = body.currency is not None or body.spent_on is not None
+    current: Expense | None = None
+    if needs_rate_check:
+        current = await expenses_repo.get_by_id_for_user(
+            session, expense_id=expense_id, user_id=user.id
+        )
+        if current is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found"
+            )
+        effective_currency = body.currency or current.currency
+        effective_spent_on = body.spent_on or current.spent_on
+        await _validate_spent_on_and_rates(
+            session,
+            spent_on=effective_spent_on,
+            expense_currency=effective_currency,
+            base_currency=user.base_currency,
+        )
+
+    row = await expenses_repo.update_with_version(
+        session,
+        expense_id=expense_id,
+        user_id=user.id,
+        expected_version=expected_version,
+        category_id=body.category_id,
+        amount=body.amount,
+        currency=body.currency,
+        description=body.description,
+        description_set="description" in body.model_fields_set,
+        spent_on=body.spent_on,
+    )
+    if row is None:
+        exists = await expenses_repo.get_by_id_for_user(
+            session, expense_id=expense_id, user_id=user.id
+        )
+        if exists is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found"
+            )
+        raise AppError(
+            code="VERSION_CONFLICT",
+            message="Expense was modified; refresh and retry with the new ETag",
+            status_code=412,
+        )
+
+    old_category_id = row["old_category_id"]
+    old_spent_on = row["old_spent_on"]
+    new_category_id = row["category_id"]
+    new_spent_on = row["spent_on"]
+
+    # Always notify for the new (category, month).
+    await outbox_repo.add_expense_event(
+        session,
+        event_type="expense.updated",
+        user_id=user.id,
+        category_id=new_category_id,
+        expense_id=expense_id,
+        spent_on=new_spent_on,
+    )
+    category_changed = old_category_id != new_category_id
+    month_changed = _month_start(old_spent_on) != _month_start(new_spent_on)
+    if category_changed or month_changed:
+        await outbox_repo.add_expense_event(
+            session,
+            event_type="expense.updated",
+            user_id=user.id,
+            category_id=old_category_id,
+            expense_id=expense_id,
+            spent_on=old_spent_on,
+        )
+
+    await session.commit()
+    resp = _expense_response_from_row(row)
+    return resp, format_etag(resp.version)
 
 
 async def delete_expense(

@@ -66,7 +66,8 @@ pytest
 - Phase 3: categories + expenses CRUD (no PATCH), filters, keyset cursor, category spend — done
 - Phase 4: `GET /reports/monthly` (one SQL, LAG MoM) — done
 - Phase 5: `Idempotency-Key` on `POST /expenses` + cleanup cron — done
-- Phases 6–10: see [PLAN.md](PLAN.md)
+- Phase 6: ETag / If-Match PATCH (Postgres 16 CTE + `FOR UPDATE`) — done
+- Phases 7–10: see [PLAN.md](PLAN.md)
 
 ## Idempotency notes
 

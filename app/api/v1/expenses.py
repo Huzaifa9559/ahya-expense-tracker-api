@@ -8,9 +8,15 @@ from fastapi.responses import JSONResponse
 
 from app.deps import CurrentUser, DbSession
 from app.errors import AppError
-from app.schemas.expenses import ExpenseCreate, ExpenseListResponse, ExpenseResponse
+from app.schemas.expenses import (
+    ExpenseCreate,
+    ExpenseListResponse,
+    ExpenseResponse,
+    ExpenseUpdate,
+)
 from app.schemas.money import parse_decimal
 from app.services import expenses as expenses_service
+from app.services.etags import format_etag, parse_if_match
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -104,8 +110,32 @@ async def get_expense(
     expense_id: uuid.UUID,
     session: DbSession,
     user: CurrentUser,
+    response: Response,
 ) -> ExpenseResponse:
-    return await expenses_service.get_expense(session, user, expense_id)
+    expense = await expenses_service.get_expense(session, user, expense_id)
+    response.headers["ETag"] = format_etag(expense.version)
+    return expense
+
+
+@router.patch("/{expense_id}", response_model=ExpenseResponse)
+async def patch_expense(
+    expense_id: uuid.UUID,
+    body: ExpenseUpdate,
+    session: DbSession,
+    user: CurrentUser,
+    response: Response,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> ExpenseResponse:
+    expected = parse_if_match(if_match)
+    expense, etag = await expenses_service.patch_expense(
+        session,
+        user,
+        expense_id=expense_id,
+        body=body,
+        expected_version=expected,
+    )
+    response.headers["ETag"] = etag
+    return expense
 
 
 @router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)

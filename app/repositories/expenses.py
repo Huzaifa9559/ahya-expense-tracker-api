@@ -1,8 +1,9 @@
 import uuid
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
-from sqlalchemy import Select, select, tuple_
+from sqlalchemy import Select, select, text, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Expense
@@ -44,6 +45,82 @@ async def create(
     await session.flush()
     await session.refresh(row)
     return row
+
+
+async def update_with_version(
+    session: AsyncSession,
+    *,
+    expense_id: uuid.UUID,
+    user_id: uuid.UUID,
+    expected_version: int,
+    category_id: uuid.UUID | None,
+    amount: Decimal | None,
+    currency: str | None,
+    description: str | None,
+    description_set: bool,
+    spent_on: date | None,
+) -> dict[str, Any] | None:
+    """
+    Postgres 16: lock + version check in CTE, then UPDATE … FROM old in one statement.
+
+    Race-safe under READ COMMITTED: a concurrent PATCH blocks on FOR UPDATE. After the
+    winner commits, Postgres re-checks the CTE WHERE against the new row; version = :v
+    fails, the CTE is empty, UPDATE touches 0 rows, and the loser maps that to 412.
+    """
+    # COALESCE keeps omitted fields; description uses a flag so we can set NULL.
+    result = await session.execute(
+        text(
+            """
+            WITH old AS (
+                SELECT id, category_id, spent_on
+                FROM expenses
+                WHERE id = :id AND user_id = :uid AND version = :v
+                FOR UPDATE
+            )
+            UPDATE expenses e
+            SET
+                category_id = COALESCE(:category_id, e.category_id),
+                amount = COALESCE(:amount, e.amount),
+                currency = COALESCE(:currency, e.currency),
+                description = CASE
+                    WHEN :description_set THEN CAST(:description AS varchar)
+                    ELSE e.description
+                END,
+                spent_on = COALESCE(:spent_on, e.spent_on),
+                version = e.version + 1,
+                updated_at = now()
+            FROM old
+            WHERE e.id = old.id
+            RETURNING
+                e.id,
+                e.user_id,
+                e.category_id,
+                e.amount,
+                e.currency,
+                e.description,
+                e.spent_on,
+                e.receipt_key,
+                e.version,
+                e.created_at,
+                e.updated_at,
+                old.category_id AS old_category_id,
+                old.spent_on AS old_spent_on
+            """
+        ),
+        {
+            "id": expense_id,
+            "uid": user_id,
+            "v": expected_version,
+            "category_id": category_id,
+            "amount": amount,
+            "currency": currency,
+            "description": description,
+            "description_set": description_set,
+            "spent_on": spent_on,
+        },
+    )
+    row = result.mappings().first()
+    return dict(row) if row else None
 
 
 async def delete(session: AsyncSession, expense: Expense) -> None:
