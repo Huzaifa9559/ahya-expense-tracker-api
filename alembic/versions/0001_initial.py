@@ -156,16 +156,18 @@ def upgrade() -> None:
             event_type VARCHAR(64) NOT NULL,
             payload JSONB NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            processed_at TIMESTAMPTZ NULL
+            processed_at TIMESTAMPTZ NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT NULL
         )
         """
     )
-    # Worker poll of unprocessed events (FOR UPDATE SKIP LOCKED).
+    # Worker poll of unprocessed, non-poisoned events (FOR UPDATE SKIP LOCKED).
     op.execute(
         """
         CREATE INDEX ix_outbox_events_unprocessed
         ON outbox_events (created_at)
-        WHERE processed_at IS NULL
+        WHERE processed_at IS NULL AND attempts < 5
         """
     )
 

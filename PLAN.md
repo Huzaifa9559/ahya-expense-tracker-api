@@ -164,7 +164,9 @@ Opaque refresh tokens (not JWTs): `secrets.token_urlsafe(32)` issued to the clie
 - `payload JSONB NOT NULL` — `{user_id, category_id, expense_id, spent_on}`
 - `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`
 - `processed_at TIMESTAMPTZ NULL`
-- INDEX `(created_at) WHERE processed_at IS NULL` — worker poll of unprocessed rows
+- `attempts INTEGER NOT NULL DEFAULT 0` — poison-event counter; claim skips `attempts >= 5`
+- `last_error TEXT NULL` — last savepoint failure message for inspection
+- INDEX `(created_at) WHERE processed_at IS NULL AND attempts < 5` — worker poll (`FOR UPDATE SKIP LOCKED`)
 
 ### notifications
 - `id UUID PK`
@@ -254,7 +256,7 @@ Flow in one transaction: (1) `DELETE` expired row for that `(user_id, key)` if `
 GET sets `ETag: "{version}"` (quoted). PATCH requires `If-Match` (missing → 428 `PRECONDITION_REQUIRED`; accept `"3"` and `W/"3"`, else 400 `INVALID_IF_MATCH`). Compose runs **Postgres 16**, so the version check + write is one statement via CTE: `old AS (SELECT id, category_id, spent_on … WHERE id, user_id, version FOR UPDATE)` then `UPDATE … FROM old RETURNING e.*, old.category_id, old.spent_on`. Race-safe under READ COMMITTED: loser blocks on `FOR UPDATE`, then re-evaluates `version = :v` against the committed row and gets zero rows → 412. Always write `expense.updated` for the **new** `(category_id, spent_on)`; if `category_id` or the calendar month of `spent_on` changed, also write one for the **old** pair. No row from the update: existence by `id`+`user_id` → 404 vs 412 `VERSION_CONFLICT`.
 
 ### Budget alerts
-Every expense create/update/delete (and CSV batch-affected pairs) writes `outbox_events` in the same transaction as the data change. Worker claim + notify + mark done is **ONE transaction**: `SELECT ... FOR UPDATE SKIP LOCKED` → recompute month total in base currency → `INSERT notifications ... ON CONFLICT DO NOTHING` → set `processed_at` → commit. Replays and multiple workers cannot duplicate alerts. **Edits or deletes that lower the total do not retract alerts already sent.** New crossings still insert (80 then 100 → two rows). Categories with no budget: worker no-ops.
+Every expense create/update/delete (and CSV batch-affected pairs) writes `outbox_events` in the same transaction as the data change. Worker (every 5s): claim batch `FOR UPDATE SKIP LOCKED` where `processed_at IS NULL AND attempts < 5` → **coalesce** by `(user_id, category_id, month)` and recompute each group once (LATERAL as-of to base) → for each level in `(80, 100)` currently reached, `INSERT notifications ... ON CONFLICT DO NOTHING` (a 50%→120% jump inserts both) → mark events `processed_at`. Each group runs in a **SAVEPOINT**; on failure increment `attempts` / `last_error` and continue (poison after 5). Missing category / null-or-zero budget: no notification, mark processed. Cron deletes processed rows older than 7 days. **Edits/deletes that lower the total never retract alerts;** unique constraint prevents resend for that month.
 
 ### CSV import
 Order of operations:
@@ -332,7 +334,7 @@ Other tests (target ≥35, coverage ≥85%):
 - **Phase 4** — monthly report SQL (categories × months grid, COALESCE, LAG, round at aggregate). Tests: mixed currencies + missing rate day + negative change.
 - **Phase 5** — idempotency (`model_dump` hash, `ON CONFLICT DO NOTHING RETURNING`, expired cleanup cron). Tests: replay, 422, parallel gather, expired key, failed-not-stored.
 - **Phase 6** — ETag / If-Match; Postgres 16 CTE `FOR UPDATE` + UPDATE RETURNING old/new; dual outbox on category/month change. Tests: 428, 412, parallel PATCH.
-- **Phase 7** — outbox worker (claim + notify + `processed_at` in one txn) + GET /notifications. Tests: duplicate event, no retract, list, under 80%.
+- **Phase 7** — outbox worker (SKIP LOCKED, coalesce, savepoints/poison, retention) + GET /notifications. Tests: 80/100, duplicate, concurrent workers, no retract, coalescing, poison.
 - **Phase 8** — CSV: `job_id` → `upload_fileobj`+sha256 → INSERT; conflict deletes object and returns existing job; worker stream + row dedupe + batch outbox; GET /imports/{job_id}. Tests: mixed rows, same-file dedupe, identical rows both import, job status.
 - **Phase 9** — S3 receipts: `S3_PUBLIC_ENDPOINT` presign POST, prefix + magic confirm (delete on mismatch), replace enqueues old key, deletion queue worker. Tests: moto.
 - **Phase 10** — Postman for every endpoint, README (setup, coverage, AI-usage, **skipped = whatever unfinished at submission**, AWS notes, five short answers).

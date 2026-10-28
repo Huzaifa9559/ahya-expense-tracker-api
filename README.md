@@ -67,7 +67,20 @@ pytest
 - Phase 4: `GET /reports/monthly` (one SQL, LAG MoM) — done
 - Phase 5: `Idempotency-Key` on `POST /expenses` + cleanup cron — done
 - Phase 6: ETag / If-Match PATCH (Postgres 16 CTE + `FOR UPDATE`) — done
-- Phases 7–10: see [PLAN.md](PLAN.md)
+- Phase 7: outbox worker + budget notifications — done
+- Phases 8–10: see [PLAN.md](PLAN.md)
+
+## Optimistic locking note
+
+`FOR UPDATE` in the PATCH CTE locks **only that expense row**. Contention happens only when two clients edit the same expense at once — rare in practice, which is why optimistic locking (version / ETag) fits better than pessimistically locking a wider range.
+
+## Budget alerts / outbox
+
+- Worker coalesces claimed events by `(user_id, category_id, month)` and recomputes once per group (LATERAL as-of into base currency).
+- Inserts every threshold currently reached (80 and 100) with `ON CONFLICT DO NOTHING` — a jump from 50% to 120% creates both rows; deterministic and idempotent.
+- **Edit/delete behavior:** totals are recomputed on every change; lowering a total never retracts an alert; crossing again after a drop does not resend (unique constraint holds for that month).
+- Missing category / null-or-zero budget: no notification; events marked processed.
+- Unexpected errors: savepoint rollback, `attempts`++, `last_error` set; after 5 attempts the event is skipped (`attempts < 5` filter). Processed rows older than 7 days are purged by cron.
 
 ## Idempotency notes
 

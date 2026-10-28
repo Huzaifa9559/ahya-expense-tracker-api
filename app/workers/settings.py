@@ -7,6 +7,7 @@ from arq.connections import RedisSettings
 
 from app.config import get_settings
 from app.workers.cleanup import cleanup_expired
+from app.workers.outbox import process_outbox_batch, purge_processed_outbox
 
 
 def _redis_settings() -> RedisSettings:
@@ -25,7 +26,13 @@ async def ping(_ctx: dict) -> str:
 
 
 class WorkerSettings:
-    functions = [ping, cleanup_expired]
+    functions = [ping, cleanup_expired, process_outbox_batch, purge_processed_outbox]
     redis_settings = _redis_settings()
-    # Hourly sweep of expired idempotency keys and refresh tokens.
-    cron_jobs = [cron(cleanup_expired, hour=None, minute={0})]
+    cron_jobs = [
+        # Hourly sweep of expired idempotency keys and refresh tokens.
+        cron(cleanup_expired, hour=None, minute={0}),
+        # Drain outbox every 5 seconds.
+        cron(process_outbox_batch, second={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+        # Daily retention of processed outbox rows older than 7 days.
+        cron(purge_processed_outbox, hour={3}, minute={15}),
+    ]
