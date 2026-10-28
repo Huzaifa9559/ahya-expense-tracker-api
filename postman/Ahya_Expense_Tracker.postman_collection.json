@@ -1,0 +1,1921 @@
+{
+  "info": {
+    "name": "Ahya Expense Tracker API",
+    "description": "Run Auth \u2192 Login first. Worker must be running for Notifications and Imports. Saved examples are real responses captured against a local stack; tokens and presign signatures are redacted. Regenerate with `python scripts/capture_postman_examples.py` then `python scripts/build_postman_collection.py`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "expenseId",
+      "value": "a4ba4126-01d4-4574-b3cc-17e8e93025b2"
+    },
+    {
+      "key": "categoryId",
+      "value": "b7448e63-b543-4535-9916-9db9774dad5e"
+    },
+    {
+      "key": "etag",
+      "value": ""
+    },
+    {
+      "key": "jobId",
+      "value": "c5793bb8-1ee0-4ea5-9a3a-0ae514d6ef35"
+    },
+    {
+      "key": "receiptKey",
+      "value": "receipts/8e8ab20f-6dd8-440a-97d1-f5860ecd0720/a4ba4126-01d4-4574-b3cc-17e8e93025b2/945d7700-f03a-42fa-a7f4-3a6daa2f2b1a.png"
+    },
+    {
+      "key": "s3UploadUrl",
+      "value": ""
+    },
+    {
+      "key": "nextCursor",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health",
+            "description": "Liveness probe used by the load balancer."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/health"
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"ok\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "description": "Create a user; base_currency must exist in exchange_rates.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"reviewer@example.com\",\n  \"password\": \"Passw0rd-demo\",\n  \"base_currency\": \"USD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/auth/register",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"reviewer+1793220355@example.com\",\n  \"password\": \"Passw0rd-demo\",\n  \"base_currency\": \"USD\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "201",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"8e8ab20f-6dd8-440a-97d1-f5860ecd0720\",\n  \"email\": \"reviewer+1793220355@example.com\",\n  \"base_currency\": \"USD\",\n  \"created_at\": \"2026-10-28T20:45:55.249127+00:00\"\n}"
+            },
+            {
+              "name": "409 Duplicate email",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/auth/register",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"reviewer+1793220355@example.com\",\n  \"password\": \"Passw0rd-demo\",\n  \"base_currency\": \"USD\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "409",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"conflict\",\n    \"message\": \"Email already registered\",\n    \"details\": []\n  }\n}"
+            },
+            {
+              "name": "422 Invalid base_currency",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/auth/register",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"badcur+1793220355@example.com\",\n  \"password\": \"Passw0rd-demo\",\n  \"base_currency\": \"ZZZ\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "422",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"validation_error\",\n    \"message\": \"base_currency is not a known currency\",\n    \"details\": []\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "description": "Returns access JWT + opaque refresh; saves tokens in test script.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"reviewer@example.com\",\n  \"password\": \"Passw0rd-demo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"reviewer+1793220355@example.com\",\n  \"password\": \"Passw0rd-demo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"access_token\": \"<redacted-access-token>\",\n  \"refresh_token\": \"<redacted-refresh-token>\",\n  \"token_type\": \"bearer\"\n}"
+            },
+            {
+              "name": "401 Wrong password",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"reviewer+1793220355@example.com\",\n  \"password\": \"wrong-password\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "401",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"unauthorized\",\n    \"message\": \"Invalid email or password\",\n    \"details\": []\n  }\n}"
+            },
+            {
+              "name": "429 Too many failed logins",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"ratelimit+1793220355@example.com\",\n  \"password\": \"wrong-password\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "429",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "retry-after",
+                  "value": "900"
+                },
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"rate_limited\",\n    \"message\": \"Too many failed login attempts. Try again later.\",\n    \"details\": []\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', j.access_token);",
+                  "  pm.collectionVariables.set('refreshToken', j.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/refresh",
+            "description": "Rotates the opaque refresh token; reuse of the old token revokes all.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/auth/refresh",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"<redacted-refresh-token>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"access_token\": \"<redacted-access-token>\",\n  \"refresh_token\": \"<redacted-refresh-token>\",\n  \"token_type\": \"bearer\"\n}"
+            },
+            {
+              "name": "401 Refresh reuse (theft)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/auth/refresh",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"<redacted-refresh-token>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "401",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"unauthorized\",\n    \"message\": \"Invalid refresh token\",\n    \"details\": []\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', j.access_token);",
+                  "  pm.collectionVariables.set('refreshToken', j.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "description": "Revokes the presented refresh token (204).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/auth/logout",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"<redacted-refresh-token>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "204",
+              "code": 204,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "Protected without token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/categories",
+            "description": "Missing Bearer token \u2192 401."
+          },
+          "response": [
+            {
+              "name": "401 Unauthorized",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/categories"
+              },
+              "status": "401",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"unauthorized\",\n    \"message\": \"Could not validate credentials\",\n    \"details\": []\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "Create category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/categories",
+            "description": "Create a category; saves categoryId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Food\",\n  \"monthly_budget\": \"100.00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/categories",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Food\",\n  \"monthly_budget\": \"100.00\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "201",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"name\": \"Food\",\n  \"monthly_budget\": \"100.00\",\n  \"created_at\": \"2026-10-28T20:45:55.620165Z\"\n}"
+            },
+            {
+              "name": "409 Duplicate name",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/categories",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Food\",\n  \"monthly_budget\": \"100.00\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "409",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"conflict\",\n    \"message\": \"Category name already exists\",\n    \"details\": []\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('categoryId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/categories",
+            "description": "This-month spend vs budget (converted to base)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/categories"
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n    \"name\": \"Food\",\n    \"monthly_budget\": \"100.00\",\n    \"created_at\": \"2026-10-28T20:45:55.620165Z\",\n    \"spend\": \"21.00\",\n    \"percent_used\": 21.0\n  }\n]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Expenses",
+      "item": [
+        {
+          "name": "Create expense",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses",
+            "description": "Create expense; Idempotency-Key {{$guid}}; saves expenseId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{categoryId}}\",\n  \"amount\": \"12.50\",\n  \"currency\": \"USD\",\n  \"description\": \"coffee\",\n  \"spent_on\": \"2026-10-28\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "4281edd8-ab6f-4b04-83f0-62dcdefeb233"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"12.50\",\n  \"currency\": \"USD\",\n  \"description\": \"coffee\",\n  \"spent_on\": \"2026-10-28\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "201",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"a4ba4126-01d4-4574-b3cc-17e8e93025b2\",\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"12.50\",\n  \"currency\": \"USD\",\n  \"description\": \"coffee\",\n  \"spent_on\": \"2026-10-28\",\n  \"receipt_key\": null,\n  \"version\": 1,\n  \"created_at\": \"2026-10-28T20:45:55.633677Z\",\n  \"updated_at\": \"2026-10-28T20:45:55.633677Z\"\n}"
+            },
+            {
+              "name": "422 Amount zero",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"0\",\n  \"currency\": \"USD\",\n  \"spent_on\": \"2026-10-28\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "422",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"validation_error\",\n    \"message\": \"Request validation failed\",\n    \"details\": [\n      {\n        \"type\": \"greater_than\",\n        \"loc\": [\n          \"body\",\n          \"amount\"\n        ],\n        \"msg\": \"Input should be greater than 0\",\n        \"input\": \"0\",\n        \"ctx\": {\n          \"gt\": 0\n        }\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "422 Amount negative",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"-1.00\",\n  \"currency\": \"USD\",\n  \"spent_on\": \"2026-10-28\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "422",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"validation_error\",\n    \"message\": \"Request validation failed\",\n    \"details\": [\n      {\n        \"type\": \"greater_than\",\n        \"loc\": [\n          \"body\",\n          \"amount\"\n        ],\n        \"msg\": \"Input should be greater than 0\",\n        \"input\": \"-1.00\",\n        \"ctx\": {\n          \"gt\": 0\n        }\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "422 More than two decimals",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"1.123\",\n  \"currency\": \"USD\",\n  \"spent_on\": \"2026-10-28\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "422",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"validation_error\",\n    \"message\": \"Request validation failed\",\n    \"details\": [\n      {\n        \"type\": \"decimal_max_places\",\n        \"loc\": [\n          \"body\",\n          \"amount\"\n        ],\n        \"msg\": \"Decimal input should have no more than 2 decimal places\",\n        \"input\": \"1.123\",\n        \"ctx\": {\n          \"decimal_places\": 2\n        }\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "422 Future spent_on",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"1.00\",\n  \"currency\": \"USD\",\n  \"spent_on\": \"2099-01-01\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "422",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"FUTURE_SPENT_ON\",\n    \"message\": \"spent_on cannot be in the future\",\n    \"details\": []\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('expenseId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create with fixed Idempotency-Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "demo-fixed-key"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses",
+            "description": "First create under a fixed key (for replay demos).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{categoryId}}\",\n  \"amount\": \"7.00\",\n  \"currency\": \"USD\",\n  \"description\": \"idem a\",\n  \"spent_on\": \"2026-10-28\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "demo-idem-1793220355"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"7.00\",\n  \"currency\": \"USD\",\n  \"description\": \"idem a\",\n  \"spent_on\": \"2026-10-28\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "201",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"0eb6d7e5-3e2c-46c8-a1e8-8949a4df158e\",\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"7.00\",\n  \"currency\": \"USD\",\n  \"description\": \"idem a\",\n  \"spent_on\": \"2026-10-28\",\n  \"receipt_key\": null,\n  \"version\": 1,\n  \"created_at\": \"2026-10-28T20:45:55.639749Z\",\n  \"updated_at\": \"2026-10-28T20:45:55.639749Z\"\n}"
+            },
+            {
+              "name": "201 Idempotent replay",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "demo-idem-1793220355"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"7.00\",\n  \"currency\": \"USD\",\n  \"description\": \"idem a\",\n  \"spent_on\": \"2026-10-28\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "201",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "idempotent-replayed",
+                  "value": "true"
+                },
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"0eb6d7e5-3e2c-46c8-a1e8-8949a4df158e\",\n  \"amount\": \"7.00\",\n  \"version\": 1,\n  \"currency\": \"USD\",\n  \"spent_on\": \"2026-10-28\",\n  \"created_at\": \"2026-10-28T20:45:55.639749Z\",\n  \"updated_at\": \"2026-10-28T20:45:55.639749Z\",\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"description\": \"idem a\",\n  \"receipt_key\": null\n}"
+            },
+            {
+              "name": "422 Key reused with different body",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "demo-idem-1793220355"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"8.00\",\n  \"currency\": \"USD\",\n  \"description\": \"idem a\",\n  \"spent_on\": \"2026-10-28\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "422",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"IDEMPOTENCY_KEY_REUSED\",\n    \"message\": \"Idempotency-Key was already used with a different request body\",\n    \"details\": []\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get expense",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses/{{expenseId}}",
+            "description": "Returns ETag; test script stores it in etag."
+          },
+          "response": [
+            {
+              "name": "200 OK with ETag",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/a4ba4126-01d4-4574-b3cc-17e8e93025b2"
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "etag",
+                  "value": "\"1\""
+                }
+              ],
+              "body": "{\n  \"id\": \"a4ba4126-01d4-4574-b3cc-17e8e93025b2\",\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"12.50\",\n  \"currency\": \"USD\",\n  \"description\": \"coffee\",\n  \"spent_on\": \"2026-10-28\",\n  \"receipt_key\": null,\n  \"version\": 1,\n  \"created_at\": \"2026-10-28T20:45:55.633677Z\",\n  \"updated_at\": \"2026-10-28T20:45:55.633677Z\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) { pm.collectionVariables.set('etag', etag); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List expenses (page 1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses?limit=2&category_id={{categoryId}}",
+            "description": "Keyset page; follow next_cursor for page 2."
+          },
+          "response": [
+            {
+              "name": "200 Page 1",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses?limit=2&category_id=b7448e63-b543-4535-9916-9db9774dad5e"
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"a4ba4126-01d4-4574-b3cc-17e8e93025b2\",\n      \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n      \"amount\": \"12.50\",\n      \"currency\": \"USD\",\n      \"description\": \"coffee\",\n      \"spent_on\": \"2026-10-28\",\n      \"receipt_key\": null,\n      \"version\": 1,\n      \"created_at\": \"2026-10-28T20:45:55.633677Z\",\n      \"updated_at\": \"2026-10-28T20:45:55.633677Z\"\n    },\n    {\n      \"id\": \"8a8374b8-39e9-4288-bd47-7ed4114ea9f3\",\n      \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n      \"amount\": \"3.00\",\n      \"currency\": \"USD\",\n      \"description\": \"page 2\",\n      \"spent_on\": \"2026-10-28\",\n      \"receipt_key\": null,\n      \"version\": 1,\n      \"created_at\": \"2026-10-28T20:45:55.673760Z\",\n      \"updated_at\": \"2026-10-28T20:45:55.673760Z\"\n    }\n  ],\n  \"next_cursor\": \"<redacted>\"\n}"
+            },
+            {
+              "name": "400 Invalid cursor",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses?cursor=not-a-cursor"
+              },
+              "status": "400",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"INVALID_CURSOR\",\n    \"message\": \"Malformed pagination cursor\",\n    \"details\": []\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List expenses (page 2)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses?limit=2&cursor={{nextCursor}}",
+            "description": "Second page via opaque cursor from page 1."
+          },
+          "response": [
+            {
+              "name": "200 Page 2",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses?limit=2&cursor=<redacted>"
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"8730702c-a309-43c3-8c00-8d064e9f9805\",\n      \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n      \"amount\": \"2.00\",\n      \"currency\": \"USD\",\n      \"description\": \"page 1\",\n      \"spent_on\": \"2026-10-28\",\n      \"receipt_key\": null,\n      \"version\": 1,\n      \"created_at\": \"2026-10-28T20:45:55.670024Z\",\n      \"updated_at\": \"2026-10-28T20:45:55.670024Z\"\n    },\n    {\n      \"id\": \"258e7e12-d811-4414-a927-147fac491afa\",\n      \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n      \"amount\": \"21.00\",\n      \"currency\": \"USD\",\n      \"description\": \"list spend\",\n      \"spent_on\": \"2026-10-28\",\n      \"receipt_key\": null,\n      \"version\": 1,\n      \"created_at\": \"2026-10-28T20:45:55.626499Z\",\n      \"updated_at\": \"2026-10-28T20:45:55.626499Z\"\n    }\n  ],\n  \"next_cursor\": \"<redacted>\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "PATCH expense",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{etag}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses/{{expenseId}}",
+            "description": "Optimistic lock; sends If-Match {{etag}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"coffee updated\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "If-Match",
+                    "value": "\"1\""
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/a4ba4126-01d4-4574-b3cc-17e8e93025b2",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"coffee updated\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "etag",
+                  "value": "\"2\""
+                }
+              ],
+              "body": "{\n  \"id\": \"a4ba4126-01d4-4574-b3cc-17e8e93025b2\",\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"12.50\",\n  \"currency\": \"USD\",\n  \"description\": \"coffee updated\",\n  \"spent_on\": \"2026-10-28\",\n  \"receipt_key\": null,\n  \"version\": 2,\n  \"created_at\": \"2026-10-28T20:45:55.633677Z\",\n  \"updated_at\": \"2026-10-28T20:45:55.685919Z\"\n}"
+            },
+            {
+              "name": "412 Stale ETag",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "If-Match",
+                    "value": "\"1\""
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/a4ba4126-01d4-4574-b3cc-17e8e93025b2",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"stale\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "412",
+              "code": 412,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"VERSION_CONFLICT\",\n    \"message\": \"Expense was modified; refresh and retry with the new ETag\",\n    \"details\": []\n  }\n}"
+            },
+            {
+              "name": "428 Missing If-Match",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/a4ba4126-01d4-4574-b3cc-17e8e93025b2",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"missing if-match\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "428",
+              "code": 428,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"PRECONDITION_REQUIRED\",\n    \"message\": \"If-Match header is required\",\n    \"details\": []\n  }\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) { pm.collectionVariables.set('etag', etag); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Other user's expense",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses/{{expenseId}}",
+            "description": "Ownership filter returns 404 (never 403)."
+          },
+          "response": [
+            {
+              "name": "404 Not found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/a4ba4126-01d4-4574-b3cc-17e8e93025b2"
+              },
+              "status": "404",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"not_found\",\n    \"message\": \"Expense not found\",\n    \"details\": []\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete expense",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses/{{expenseId}}",
+            "description": "Soft-ownership delete; enqueues receipt_key if present."
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/ac8a1dda-f4ea-4774-9ee4-5207ebfe9ceb"
+              },
+              "status": "204",
+              "code": 204,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Monthly report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/reports/monthly?year=2026&month=10",
+            "description": "One-SQL monthly report with MoM change."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/reports/monthly?year=2026&month=10"
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"year\": 2026,\n  \"month\": 10,\n  \"base_currency\": \"USD\",\n  \"items\": [\n    {\n      \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n      \"name\": \"Food\",\n      \"budget\": \"100.00\",\n      \"total\": \"57.35\",\n      \"previous_total\": \"0.00\",\n      \"change\": \"57.35\",\n      \"percent_used\": 57.35\n    }\n  ]\n}"
+            },
+            {
+              "name": "422 Invalid month",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/reports/monthly?year=2026&month=13"
+              },
+              "status": "422",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"validation_error\",\n    \"message\": \"Request validation failed\",\n    \"details\": [\n      {\n        \"type\": \"less_than_equal\",\n        \"loc\": [\n          \"query\",\n          \"month\"\n        ],\n        \"msg\": \"Input should be less than or equal to 12\",\n        \"input\": \"13\",\n        \"ctx\": {\n          \"le\": 12\n        }\n      }\n    ]\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/notifications",
+            "description": "Budget alerts from the outbox worker (needs worker running)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/notifications"
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"b502034f-8559-4f3f-88d6-075698bd85e3\",\n      \"category_id\": \"fe648a55-8115-46c2-978a-4276fc4b642e\",\n      \"category_name\": \"Alerts\",\n      \"period_month\": \"2026-10-01\",\n      \"level\": 100,\n      \"message\": \"Alerts reached 100% of its 2026-10 budget (USD 105.00 of 100.00)\",\n      \"created_at\": \"2026-10-28T20:46:00.556440Z\"\n    },\n    {\n      \"id\": \"8afac8cb-737d-4f46-b804-8cf45e431722\",\n      \"category_id\": \"fe648a55-8115-46c2-978a-4276fc4b642e\",\n      \"category_name\": \"Alerts\",\n      \"period_month\": \"2026-10-01\",\n      \"level\": 80,\n      \"message\": \"Alerts reached 80% of its 2026-10 budget (USD 105.00 of 100.00)\",\n      \"created_at\": \"2026-10-28T20:46:00.556440Z\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Imports",
+      "item": [
+        {
+          "name": "POST CSV import",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses/import",
+            "description": "Multipart field 'file'; returns job_id (202).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "postman/sample_import.csv"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "202 Accepted",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/import"
+              },
+              "status": "202",
+              "code": 202,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"job_id\": \"c5793bb8-1ee0-4ea5-9a3a-0ae514d6ef35\",\n  \"status\": \"pending\"\n}"
+            },
+            {
+              "name": "202 Same file_hash",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/import"
+              },
+              "status": "202",
+              "code": 202,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"job_id\": \"c5793bb8-1ee0-4ea5-9a3a-0ae514d6ef35\",\n  \"status\": \"completed\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  pm.collectionVariables.set('jobId', pm.response.json().job_id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET import job",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/imports/{{jobId}}",
+            "description": "Job status, counts, and capped error list."
+          },
+          "response": [
+            {
+              "name": "200 Completed",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/imports/c5793bb8-1ee0-4ea5-9a3a-0ae514d6ef35"
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"job_id\": \"c5793bb8-1ee0-4ea5-9a3a-0ae514d6ef35\",\n  \"status\": \"completed\",\n  \"total_rows\": 9,\n  \"processed_rows\": 9,\n  \"failed_rows\": 7,\n  \"succeeded_rows\": 2,\n  \"started_at\": \"2026-10-28T20:46:01.066467Z\",\n  \"finished_at\": \"2026-10-28T20:46:01.127703Z\",\n  \"errors\": [\n    {\n      \"row_number\": 4,\n      \"reason\": \"invalid date; expected YYYY-MM-DD\"\n    },\n    {\n      \"row_number\": 5,\n      \"reason\": \"spent_on must not be in the future\"\n    },\n    {\n      \"row_number\": 6,\n      \"reason\": \"amount must be greater than 0\"\n    },\n    {\n      \"row_number\": 7,\n      \"reason\": \"amount must have at most 2 decimal places\"\n    },\n    {\n      \"row_number\": 8,\n      \"reason\": \"no exchange rate for XYZ on or before 2026-10-28\"\n    },\n    {\n      \"row_number\": 9,\n      \"reason\": \"unknown category: Ghost\"\n    },\n    {\n      \"row_number\": 10,\n      \"reason\": \"no exchange rate for USD on or before 2020-01-01\"\n    }\n  ],\n  \"errors_truncated\": false\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Receipts",
+      "item": [
+        {
+          "name": "Get upload URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses/{{expenseId}}/receipt/upload-url",
+            "description": "Presigned POST fields; saves receiptKey.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content_type\": \"image/png\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/a4ba4126-01d4-4574-b3cc-17e8e93025b2/receipt/upload-url",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"content_type\": \"image/png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"url\": \"http://localhost:9000/ahya-receipts\",\n  \"fields\": {\n    \"Content-Type\": \"image/png\",\n    \"key\": \"receipts/8e8ab20f-6dd8-440a-97d1-f5860ecd0720/a4ba4126-01d4-4574-b3cc-17e8e93025b2/945d7700-f03a-42fa-a7f4-3a6daa2f2b1a.png\",\n    \"x-amz-algorithm\": \"AWS4-HMAC-SHA256\",\n    \"x-amz-credential\": \"<redacted>\",\n    \"x-amz-date\": \"20261028T204601Z\",\n    \"policy\": \"<redacted>\",\n    \"x-amz-signature\": \"<redacted>\"\n  },\n  \"key\": \"receipts/8e8ab20f-6dd8-440a-97d1-f5860ecd0720/a4ba4126-01d4-4574-b3cc-17e8e93025b2/945d7700-f03a-42fa-a7f4-3a6daa2f2b1a.png\",\n  \"expires_in\": 600,\n  \"max_bytes\": 5242880\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('receiptKey', pm.response.json().key);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload file to S3 (presigned POST, not our API)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "key",
+                  "value": "{{receiptKey}}",
+                  "type": "text"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "image/png",
+                  "type": "text"
+                },
+                {
+                  "key": "policy",
+                  "value": "<redacted>",
+                  "type": "text"
+                },
+                {
+                  "key": "x-amz-algorithm",
+                  "value": "AWS4-HMAC-SHA256",
+                  "type": "text"
+                },
+                {
+                  "key": "x-amz-credential",
+                  "value": "<redacted>",
+                  "type": "text"
+                },
+                {
+                  "key": "x-amz-date",
+                  "value": "{{$timestamp}}",
+                  "type": "text"
+                },
+                {
+                  "key": "x-amz-signature",
+                  "value": "<redacted>",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "postman/fixtures/receipt.png"
+                }
+              ]
+            },
+            "url": "{{s3UploadUrl}}",
+            "description": "Browser/host POSTs the file to S3 with the fields from upload-url. Not an API route."
+          },
+          "response": [
+            {
+              "name": "204 Uploaded to S3",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": "http://localhost:9000/ahya-receipts",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fields\": {\n    \"Content-Type\": \"image/png\",\n    \"key\": \"receipts/8e8ab20f-6dd8-440a-97d1-f5860ecd0720/a4ba4126-01d4-4574-b3cc-17e8e93025b2/945d7700-f03a-42fa-a7f4-3a6daa2f2b1a.png\",\n    \"x-amz-algorithm\": \"AWS4-HMAC-SHA256\",\n    \"x-amz-credential\": \"<redacted>\",\n    \"x-amz-date\": \"20261028T204601Z\",\n    \"policy\": \"<redacted>\",\n    \"x-amz-signature\": \"<redacted>\"\n  },\n  \"file\": \"postman/fixtures/receipt.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "204",
+              "code": 204,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "etag",
+                  "value": "\"ce99ba4de4d54e2d09a3615caafa9f19\""
+                }
+              ],
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "Confirm receipt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses/{{expenseId}}/receipt/confirm",
+            "description": "head + magic bytes; bumps ETag on success.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"{{receiptKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 Confirmed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/a4ba4126-01d4-4574-b3cc-17e8e93025b2/receipt/confirm",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"key\": \"receipts/8e8ab20f-6dd8-440a-97d1-f5860ecd0720/a4ba4126-01d4-4574-b3cc-17e8e93025b2/945d7700-f03a-42fa-a7f4-3a6daa2f2b1a.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "etag",
+                  "value": "\"3\""
+                }
+              ],
+              "body": "{\n  \"id\": \"a4ba4126-01d4-4574-b3cc-17e8e93025b2\",\n  \"category_id\": \"b7448e63-b543-4535-9916-9db9774dad5e\",\n  \"amount\": \"12.50\",\n  \"currency\": \"USD\",\n  \"description\": \"coffee updated\",\n  \"spent_on\": \"2026-10-28\",\n  \"receipt_key\": \"receipts/8e8ab20f-6dd8-440a-97d1-f5860ecd0720/a4ba4126-01d4-4574-b3cc-17e8e93025b2/945d7700-f03a-42fa-a7f4-3a6daa2f2b1a.png\",\n  \"version\": 3,\n  \"created_at\": \"2026-10-28T20:45:55.633677Z\",\n  \"updated_at\": \"2026-10-28T20:46:01.989776Z\"\n}"
+            },
+            {
+              "name": "422 INVALID_FILE_TYPE",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/a4ba4126-01d4-4574-b3cc-17e8e93025b2/receipt/confirm",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"key\": \"receipts/8e8ab20f-6dd8-440a-97d1-f5860ecd0720/a4ba4126-01d4-4574-b3cc-17e8e93025b2/00c2218e-d16e-4343-b08b-3442c616c875.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "422",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": {\n    \"code\": \"INVALID_FILE_TYPE\",\n    \"message\": \"File type does not match the key extension\",\n    \"details\": []\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Download receipt URL",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/expenses/{{expenseId}}/receipt",
+            "description": "15-minute presigned GET (X-Amz-Expires=900)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/expenses/a4ba4126-01d4-4574-b3cc-17e8e93025b2/receipt"
+              },
+              "status": "200",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"url\": \"http://localhost:9000/ahya-receipts/receipts/8e8ab20f-6dd8-440a-97d1-f5860ecd0720/a4ba4126-01d4-4574-b3cc-17e8e93025b2/945d7700-f03a-42fa-a7f4-3a6daa2f2b1a.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=<redacted>&X-Amz-Date=20261028T204602Z&X-Amz-Expires=900&X-Amz-SignedHeaders=host&X-Amz-Signature=<redacted>\",\n  \"expires_in\": 900\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

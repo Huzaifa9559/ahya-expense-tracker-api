@@ -1,0 +1,10 @@
+date,amount,currency,category,description
+2026-10-28,10.00,USD,Food,good row
+2026-10-28,5.50,EUR,Food,good eur
+not-a-date,10.00,USD,Food,bad date
+2099-01-01,10.00,USD,Food,future date
+2026-10-28,0.00,USD,Food,zero amount
+2026-10-28,1.123,USD,Food,three decimals
+2026-10-28,10.00,XYZ,Food,unknown currency
+2026-10-28,10.00,USD,Ghost,unknown category
+2020-01-01,10.00,USD,Food,before earliest rate

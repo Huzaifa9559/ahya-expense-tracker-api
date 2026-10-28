@@ -7,9 +7,10 @@ import io
 import json
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from botocore.exceptions import ClientError
 from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
@@ -53,6 +54,20 @@ async def _make_expense(
 
 def _decode_policy(fields: dict) -> dict:
     return json.loads(base64.b64decode(fields["policy"]))
+
+
+@pytest.mark.asyncio
+async def test_head_treats_403_as_missing():
+    """Real AWS without s3:ListBucket returns 403 for a missing key — treat as None."""
+    err = ClientError(
+        {
+            "Error": {"Code": "403", "Message": "Forbidden"},
+            "ResponseMetadata": {"HTTPStatusCode": 403},
+        },
+        "HeadObject",
+    )
+    with patch.object(s3, "head_object", AsyncMock(side_effect=err)):
+        assert await s3.head("receipts/u/e/missing.png") is None
 
 
 @pytest.mark.asyncio

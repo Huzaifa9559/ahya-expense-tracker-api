@@ -66,8 +66,14 @@ async def head(key: str) -> int | None:
     try:
         meta = await head_object(key)
     except ClientError as exc:
-        code = exc.response.get("Error", {}).get("Code", "")
-        if code in {"404", "NoSuchKey", "NotFound"}:
+        code = str(exc.response.get("Error", {}).get("Code", ""))
+        http_status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        # Real AWS: without s3:ListBucket, HeadObject on a missing key returns 403
+        # (not 404). Our minimal IAM policy intentionally omits ListBucket, so treat
+        # both 403 and 404 as "not found" for confirm's RECEIPT_NOT_UPLOADED path.
+        if code in {"404", "403", "NoSuchKey", "NotFound", "AccessDenied", "Forbidden"}:
+            return None
+        if http_status in {403, 404}:
             return None
         raise
     return int(meta["ContentLength"])
