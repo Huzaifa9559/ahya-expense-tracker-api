@@ -68,7 +68,15 @@ pytest
 - Phase 5: `Idempotency-Key` on `POST /expenses` + cleanup cron — done
 - Phase 6: ETag / If-Match PATCH (Postgres 16 CTE + `FOR UPDATE`) — done
 - Phase 7: outbox worker + budget notifications — done
-- Phases 8–10: see [PLAN.md](PLAN.md)
+- Phase 8: bulk CSV import (S3 + arq worker) — done
+- Phases 9–10: see [PLAN.md](PLAN.md)
+
+## CSV import notes
+
+- Upload flow: validate `.csv` + header → sha256 in 1 MB chunks → if `(user_id, file_hash)` exists return that `job_id` (202, no re-upload); else `put_fileobj` to `imports/{user_id}/{job_id}.csv`, INSERT `import_jobs`, enqueue `import_csv`. UNIQUE race deletes the orphan object and returns the winner's job.
+- **Why batched `INSERT … ON CONFLICT` instead of `COPY`:** `COPY` cannot skip conflicting `dedupe_hash` rows without a staging table. Batches of 1000 keep us under asyncpg's parameter limit and make worker retries idempotent via the partial unique index (`ON CONFLICT (user_id, dedupe_hash) WHERE dedupe_hash IS NOT NULL`). Scale-up path: `COPY` into a temp table, then `INSERT … ON CONFLICT` from it.
+- Worker streams lines from S3 (BOM / CRLF / chunk-split safe). One record per line — no multi-line quoted fields. Unknown category names are row errors (categories are **not** auto-created).
+- On retry after a crash (`status=processing`): delete that job's `import_errors` and reset counters before re-running so counts stay correct (dedupe already prevents duplicate expenses).
 
 ## Optimistic locking note
 

@@ -1,14 +1,16 @@
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+import boto3
 import pytest
 import pytest_asyncio
 from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
+from moto.server import ThreadedMotoServer
 from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
@@ -24,6 +26,7 @@ from app.main import create_app
 from app.redis import get_redis
 
 ROOT = Path(__file__).resolve().parents[1]
+_MOTO_PORT = 35566
 
 # Truncate every public table (including exchange_rates). Not a wrapping transaction —
 # asyncio.gather concurrency tests need committed rows visible across connections.
@@ -54,7 +57,36 @@ _TRUNCATE_SQL = text(
 
 
 @pytest.fixture(scope="session")
-def settings():
+def moto_s3() -> Iterator[str]:
+    """
+    Session-scoped ThreadedMotoServer; points Settings at it and creates the bucket.
+    All S3 I/O goes through app.storage.s3 (aioboto3) against this endpoint.
+    """
+    server = ThreadedMotoServer(ip_address="127.0.0.1", port=_MOTO_PORT, verbose=False)
+    server.start()
+    endpoint = f"http://127.0.0.1:{_MOTO_PORT}"
+    os.environ["S3_ENDPOINT_URL"] = endpoint
+    os.environ["S3_PUBLIC_ENDPOINT"] = endpoint
+    get_settings.cache_clear()
+    settings = get_settings()
+    client = boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        aws_access_key_id=settings.s3_access_key_id,
+        aws_secret_access_key=settings.s3_secret_access_key,
+        region_name=settings.s3_region,
+    )
+    try:
+        client.create_bucket(Bucket=settings.s3_bucket)
+    except client.exceptions.BucketAlreadyOwnedByYou:
+        pass
+    yield endpoint
+    server.stop()
+    get_settings.cache_clear()
+
+
+@pytest.fixture(scope="session")
+def settings(moto_s3):
     return get_settings()
 
 

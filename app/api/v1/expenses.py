@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Query, Response, status
+from fastapi import APIRouter, File, Header, Query, Response, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from app.deps import CurrentUser, DbSession
@@ -14,8 +14,10 @@ from app.schemas.expenses import (
     ExpenseResponse,
     ExpenseUpdate,
 )
+from app.schemas.imports import ImportJobAccepted
 from app.schemas.money import parse_decimal
 from app.services import expenses as expenses_service
+from app.services import imports as imports_service
 from app.services.etags import format_etag, parse_if_match
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
@@ -58,6 +60,15 @@ async def create_expense(
         )
     assert result.response is not None
     return result.response
+
+
+@router.post("/import", response_model=ImportJobAccepted, status_code=status.HTTP_202_ACCEPTED)
+async def import_expenses_csv(
+    session: DbSession,
+    user: CurrentUser,
+    file: UploadFile = File(..., description="CSV with header date,amount,currency,category,description"),
+) -> ImportJobAccepted:
+    return await imports_service.accept_csv_import(session, user, upload=file)
 
 
 @router.get("", response_model=ExpenseListResponse)
