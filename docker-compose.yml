@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ahya
+      POSTGRES_PASSWORD: ahya
+      POSTGRES_DB: expense_tracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ahya -d expense_tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # PDF allows MinIO or LocalStack. LocalStack is pinned and named `s3` so the
+  # compose file matches what is running (presigned POST policies work for demos).
+  s3:
+    image: localstack/localstack:4.0.3
+    environment:
+      SERVICES: s3
+      DEBUG: "0"
+      AWS_DEFAULT_REGION: us-east-1
+      S3_BUCKET: ahya-receipts
+    ports:
+      - "9000:4566"
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./scripts/localstack-init-s3.sh:/etc/localstack/init/ready.d/01-init-s3.sh:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ahya:ahya@postgres:5432/expense_tracker
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT_URL: http://s3:4566
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      s3:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: arq app.workers.settings.WorkerSettings
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ahya:ahya@postgres:5432/expense_tracker
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT_URL: http://s3:4566
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+    volumes:
+      - ./app:/app/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      s3:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  localstack_data:
