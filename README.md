@@ -158,12 +158,15 @@ I used Cursor for scaffolding, boilerplate, tests, and first drafts. I reviewed 
 
 ## Postman
 
-Import the files from the repo (this is the copy with saved examples):
+**Public docs (no login):** https://documenter.getpostman.com/view/45454009/2sBYHVwK4F  
+Published collection documentation with the captured examples. Prefer this over a workspace share — personal workspaces stay private.
+
+To **run** the requests locally:
 
 1. Postman → **Import** → `postman/Ahya_Expense_Tracker.postman_collection.json`
 2. Import `postman/local.postman_environment.json` and select **Ahya Local** (`baseUrl=http://localhost:8000`, empty tokens)
 
-Do **not** rely on a shared workspace link — personal workspaces are private to me, and a cloud sync without a re-import can miss the captured examples. The JSON in `postman/` is the source of truth for reviewers.
+The JSON in `postman/` is still the source of truth if the cloud copy drifts.
 
 **Run order:** Auth → Login first (test script saves tokens). Worker must be up for Notifications and Imports. Examples are real captures with tokens/signatures redacted.
 
