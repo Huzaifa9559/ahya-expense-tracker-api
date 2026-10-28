@@ -1,10 +1,12 @@
-"""arq worker settings. Real jobs are added in later phases."""
+"""arq worker settings."""
 
 from urllib.parse import urlparse
 
+from arq import cron
 from arq.connections import RedisSettings
 
 from app.config import get_settings
+from app.workers.cleanup import cleanup_expired
 
 
 def _redis_settings() -> RedisSettings:
@@ -18,11 +20,12 @@ def _redis_settings() -> RedisSettings:
 
 
 async def ping(_ctx: dict) -> str:
-    """Placeholder so arq accepts an empty Phase 0 worker (needs ≥1 function)."""
+    """Health probe so the worker always has ≥1 function."""
     return "pong"
 
 
 class WorkerSettings:
-    functions = [ping]
+    functions = [ping, cleanup_expired]
     redis_settings = _redis_settings()
-    cron_jobs: list = []
+    # Hourly sweep of expired idempotency keys and refresh tokens.
+    cron_jobs = [cron(cleanup_expired, hour=None, minute={0})]

@@ -22,12 +22,13 @@ dependencies = [
     "argon2-cffi==23.1.0",
     "PyJWT==2.10.1",
     "python-multipart==0.0.20",
+    "email-validator==2.2.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest==8.3.4",
-    "pytest-asyncio==0.25.0",
+    "pytest-asyncio==1.2.0",
     "pytest-cov==6.0.0",
     "httpx==0.28.1",
     "moto[server]==5.0.27",
@@ -39,6 +40,8 @@ include = ["app*"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
+# Same loop for tests + session-scoped engine (avoids asyncpg "different loop" errors).
+asyncio_default_test_loop_scope = "session"
 # Phase 0: cov-fail-under=0. Restore to 85 in Phase 10 (PLAN.md §4).
 addopts = "--cov=app --cov-report=term-missing --cov-fail-under=0"
 testpaths = ["tests"]

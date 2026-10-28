@@ -118,12 +118,13 @@ All PK `id` values are `UUID` default `gen_random_uuid()` unless noted. Timestam
 
 Same-user category ownership is enforced in the service (FK is global on `categories.id`). At write time: `spent_on` not in the future, and a rate with `valid_on <= spent_on` must exist for both expense currency and user `base_currency` → else 422.
 
+**No index leading with `expenses.category_id` alone.** There is no category-delete endpoint. `ON DELETE RESTRICT` is only checked if a category row is deleted; without that path, a dedicated `category_id` index would only help a query we never run. If category delete were added later, add `INDEX (category_id)` so the RESTRICT check does not seq-scan `expenses`.
+
 ### exchange_rates
 - `currency CHAR(3) NOT NULL`
 - `rate_to_usd NUMERIC(18,8) NOT NULL` — 1 unit = X USD
 - `valid_on DATE NOT NULL`
-- PK `(currency, valid_on)` — one row per currency per day; as-of lookup by equality
-- INDEX `(currency, valid_on DESC)` — LATERAL "latest rate where valid_on <= spent_on"
+- PK `(currency, valid_on)` — one row per currency per day; also serves LATERAL as-of (`WHERE currency = X AND valid_on <= D ORDER BY valid_on DESC LIMIT 1` — Postgres scans the PK btree backwards). **No second `(currency, valid_on DESC)` index** (it would duplicate the PK).
 - CHECK `rate_to_usd > 0`
 
 Seed (dev/prod migration): pure function `generate_seed_rates(today) -> list[row]` — PKR, AED, USD, EUR over the last 90 calendar days, **skip weekends**, slight per-day weekday variation (USD always `1`). Migration calls that function. Unit-test the generator with no DB (4 currencies, no weekend rows, USD == 1).
@@ -131,19 +132,19 @@ Seed (dev/prod migration): pure function `generate_seed_rates(today) -> list[row
 **Tests do not rely on migration seed data for assertions.** Autouse TRUNCATE includes `exchange_rates`. A `rates` fixture inserts small, **deterministic** rates (fixed values + a known gap day) so report tests can assert exact numbers.
 
 ### refresh_tokens
+Opaque refresh tokens (not JWTs): `secrets.token_urlsafe(32)` issued to the client; only `sha256` is stored.
 - `id UUID PK`
 - `user_id UUID NOT NULL FK users ON DELETE CASCADE`
-- `jti UUID NOT NULL`
-- `token_hash CHAR(64) NOT NULL` — sha256 of the raw refresh token
+- `token_hash CHAR(64) NOT NULL` — sha256 of the raw opaque token (lookup key)
 - `family_id UUID NOT NULL` — one family per login
 - `revoked_at TIMESTAMPTZ NULL`
 - `replaced_by UUID NULL FK refresh_tokens.id`
 - `expires_at TIMESTAMPTZ NOT NULL`
 - `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`
-- UNIQUE `jti` — decode JWT then load row
-- UNIQUE `token_hash` — lookup presented token without storing plaintext
+- UNIQUE `token_hash` — present token → hash → load row (DB is source of truth for validity)
 - INDEX `(user_id)` — reuse detection revokes every token for that user
 - INDEX `(expires_at)` — periodic cleanup of expired rows
+- No `jti` column — a second unique identifier would be redundant with `token_hash`
 
 ### idempotency_keys
 - `id UUID PK`
@@ -191,7 +192,7 @@ Seed (dev/prod migration): pure function `generate_seed_rates(today) -> list[row
 - `started_at TIMESTAMPTZ NULL`
 - `finished_at TIMESTAMPTZ NULL`
 - UNIQUE `(user_id, file_hash)` — same file twice returns the existing job, no new expenses
-- INDEX `(user_id, created_at DESC)` — ownership lookup for `GET /imports/{id}`
+- No `(user_id, created_at)` index — `GET /imports/{id}` is PK + `user_id` ownership filter; a list-my-imports endpoint would need that index and we do not have one
 
 ### import_errors
 - `id BIGSERIAL PK`
@@ -217,7 +218,7 @@ Seed (dev/prod migration): pure function `generate_seed_rates(today) -> list[row
 No change to the prescribed approaches. Notes below are implementation detail, not redesign.
 
 ### Refresh tokens
-Store sha256 of the raw token plus `jti`, `family_id`, `revoked_at`, `replaced_by`. Access JWT 15 min; refresh 7 days. Rotation is atomic:
+**Opaque refresh tokens** (recommended over JWT refresh): issue `secrets.token_urlsafe(32)`, store only `sha256` as `token_hash`. Access tokens remain JWTs (15 min); refresh lives 7 days. The DB row is the source of truth for validity — a refresh token can never be mistaken for an access token, and there is no second JWT secret. Rotation is atomic:
 
 ```sql
 UPDATE refresh_tokens
@@ -226,7 +227,7 @@ WHERE id = :id AND revoked_at IS NULL
 RETURNING id;
 ```
 
-Zero rows = reuse (or already revoked) → `UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = :uid AND revoked_at IS NULL` and reject. **Reusing a logged-out token also triggers revoke-all** (deliberate: logout sets `revoked_at`, so a later present is treated as theft). Concurrent refresh with the same token: exactly one `RETURNING` succeeds; the loser's 401 path is revoke-all, so the **winner's newly issued refresh token is subsequently rejected** (reuse detection). `family_id` is session grouping only.
+Lookup: hash the presented opaque string → `SELECT ... WHERE token_hash = :h`. Zero rows on the atomic revoke = reuse (or already revoked) → `UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = :uid AND revoked_at IS NULL` and reject. **Reusing a logged-out token also triggers revoke-all** (deliberate: logout sets `revoked_at`, so a later present is treated as theft). Concurrent refresh with the same token: exactly one `RETURNING` succeeds; the loser's 401 path is revoke-all, so the **winner's newly issued refresh token is subsequently rejected** (reuse detection). `family_id` is session grouping only.
 
 ### Login rate limit
 Redis key `login:fail:{email.lower()}`. **Check the counter BEFORE verifying the password.** If count `>= 5`, return 429 + `Retry-After` from TTL immediately — do not run argon2. On a real attempt: verify password; **increment only on failure** (atomic Lua `INCR` + `EXPIRE 900` when count becomes 1); **delete the key on success**. The 6th failed attempt (or any attempt while count ≥ 5) yields 429. Redis-backed for multi-server safety. If Redis is down, fail-open on login (documented in README). Check-then-increment is not perfectly atomic across concurrent requests (see Risks).
@@ -245,7 +246,9 @@ One statement: CTE `bounds` → build a **categories × {prev_month, current_mon
 - Weekend gaps are fine (LATERAL picks the prior weekday). A date before the earliest seeded rate for either currency is rejected (covered by `test_expense_before_earliest_rate_rejected`).
 
 ### Idempotency
-Header `Idempotency-Key` on `POST /expenses`. Hash = sha256 of canonical JSON from the **validated** body: `json.dumps(model_dump(mode="json"), sort_keys=True, separators=(",", ":"))`. Insert key row **and** the expense in the **same** transaction, then set response status + body before commit. On `UniqueViolation`: **roll back the session**, then `SELECT` the stored row — same hash → replay stored status and body; different hash → 422. Do **not** implement a "status NULL → 409" branch (unreachable after the winner commits with status filled; any defensive check belongs only as a commented unreachable guard). Expired (`expires_at < now()`): delete and treat as new. arq cron cleans expired keys. Unique index is the race control; no Redis lock.
+Header `Idempotency-Key` on `POST /expenses` (optional; if present, length 1..255). Keys are scoped per `(user_id, key)`. Hash = sha256 of canonical JSON from the **validated** body: `json.dumps(model_dump(mode="json"), sort_keys=True, separators=(",", ":"))`.
+
+Flow in one transaction: (1) `DELETE` expired row for that `(user_id, key)` if `expires_at < now()`; (2) `INSERT ... ON CONFLICT (user_id, key) DO NOTHING RETURNING id` **before** creating the expense. Postgres makes this INSERT wait for any in-flight txn holding the same key — that wait is the race control (no Redis lock). Row returned → we own the key: create expense + outbox, `UPDATE` key with `response_status` + `response_body`, commit. No row → `SELECT` existing (READ COMMITTED fresh snapshot): same `request_hash` → replay stored status/body with header `Idempotent-Replayed: true`; different hash → 422 `IDEMPOTENCY_KEY_REUSED`. If the winner rolls back, our INSERT succeeds and we become owner. Losers never do expense work. Failures (404/422/…) roll back the whole txn including the key row — not stored — so the client can fix and retry the same key. Do **not** implement a "status NULL → 409" branch. TTL 24h; arq cron deletes expired `idempotency_keys` and `refresh_tokens`.
 
 ### Optimistic locking
 GET sets `ETag: "{version}"` (quoted). PATCH requires `If-Match`; missing → 428. Single statement: `UPDATE expenses SET ..., version = version + 1, updated_at = now() WHERE id = :id AND user_id = :uid AND version = :v RETURNING *`. No row: existence check → 404 vs 412. If `category_id` or `spent_on` changes, write **outbox events for both the old and new (category_id, month)** in the same transaction as the update (so budget recompute covers both sides).
@@ -327,7 +330,7 @@ Other tests (target ≥35, coverage ≥85%):
 - **Phase 2** — register/login/refresh/logout (atomic rotate + revoke-all), Redis rate limit (check before argon2). Tests: auth + 429 + reuse + concurrent refresh (200+401+winner reuse) + rate-limited correct password.
 - **Phase 3** — categories + expenses CRUD, as-of rate + future `spent_on` validation 422, filters (incl. trigram `q`), cursor pagination, 404 ownership, GET /categories spend vs budget. Tests: expenses + categories + pagination + `test_expense_before_earliest_rate_rejected`.
 - **Phase 4** — monthly report SQL (categories × months grid, COALESCE, LAG, round at aggregate). Tests: mixed currencies + missing rate day + negative change.
-- **Phase 5** — idempotency (`model_dump` hash, rollback-on-UniqueViolation, expired cleanup cron). Tests: replay, 422, parallel gather, expired key.
+- **Phase 5** — idempotency (`model_dump` hash, `ON CONFLICT DO NOTHING RETURNING`, expired cleanup cron). Tests: replay, 422, parallel gather, expired key, failed-not-stored.
 - **Phase 6** — ETag / If-Match; PATCH bumps `updated_at` and dual outbox on category/spent_on change. Tests: 428, 412, parallel PATCH.
 - **Phase 7** — outbox worker (claim + notify + `processed_at` in one txn) + GET /notifications. Tests: duplicate event, no retract, list, under 80%.
 - **Phase 8** — CSV: `job_id` → `upload_fileobj`+sha256 → INSERT; conflict deletes object and returns existing job; worker stream + row dedupe + batch outbox; GET /imports/{job_id}. Tests: mixed rows, same-file dedupe, identical rows both import, job status.
@@ -350,6 +353,6 @@ Where a 48-hour attempt is most likely to break, and how we still finish it:
 - **moto + aioboto3 + S3_PUBLIC_ENDPOINT** — `ThreadedMotoServer`; separate public endpoint for presign.
 - **CSV on S3** — `job_id` first, then upload while hashing, then INSERT; conflict path must delete the orphan object.
 - **Worker coverage** — call outbox/import/s3/cleanup jobs directly in tests.
-- **Idempotency UniqueViolation** — always roll back, then SELECT; no 409-on-NULL-status path.
+- **Idempotency ON CONFLICT** — INSERT waits for in-flight holder; empty RETURNING → SELECT replay; failures roll back key so retry works; no 409-on-NULL-status path.
 
 README short answers: why presigned POST; 20M-row `EXPLAIN (ANALYZE, BUFFERS)` + composite index + why offset dies + N+1; 3-server LB; 500k outbox drain with `SKIP LOCKED` batching; one simple-over-perfect choice (**check-then-increment rate limit allowing 1–2 extra concurrent attempts**, fail-open login if Redis down, or no retraction of budget alerts).
