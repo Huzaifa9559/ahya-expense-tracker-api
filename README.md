@@ -13,15 +13,14 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 
 docker compose up -d --build
-
-# Dev DB (no ALEMBIC_DATABASE_URL)
+# Wait until postgres/redis/s3 are healthy (compose healthchecks), then:
 alembic upgrade head
 
 # API: http://localhost:8000  |  worker: arq cron jobs
 curl http://localhost:8000/health
 ```
 
-Test DB (prefix **both** alembic commands — `VAR=x a && b` only applies `VAR` to `a`):
+Test DB is created on first Postgres init via `scripts/init-databases.sql`. Prefix **both** alembic commands — `VAR=x a && b` only applies `VAR` to `a`:
 
 ```bash
 export ALEMBIC_DATABASE_URL=postgresql+asyncpg://ahya:ahya@localhost:5432/expense_tracker_test
@@ -30,6 +29,8 @@ unset ALEMBIC_DATABASE_URL
 
 pytest
 ```
+
+If `expense_tracker_test` is missing (e.g. you reused an old volume): `./scripts/create_test_db.sh`
 
 S3 in compose is LocalStack 4.0.3 (`localhost:9000`). Pytest uses moto `ThreadedMotoServer`.
 
@@ -74,6 +75,8 @@ Validate header → sha256 in 1 MB chunks → commit `import_jobs` **then** enqu
 
 ### Receipts
 Presigned **POST** (not PUT) so the policy can enforce `content-length-range`, exact key, and Content-Type. Confirm: `head` (treats **403 and 404** as missing — real AWS without `s3:ListBucket` returns 403), magic bytes must match extension, bumps **version/ETag**. Deletion queue with `min(2^attempts, 60)` minute backoff. Orphan uploads (URL fetched, never confirmed) are a known gap — nightly reconciliation of unreferenced `receipts/` keys older than 24h.
+
+**LocalStack 5 MB policy — verified:** a 6 MB file through the presigned POST returns `400 EntityTooLarge` with `MaxSizeAllowed=5242880`. Confirm still re-checks size via `head` as a second layer (and moto tests assert the policy JSON conditions even when the mock server is not the demo path).
 
 When the task role uses temporary credentials, a presigned URL dies when those credentials expire even if its own `Expires` hasn't — short 10/15-minute URLs make that rare, but it's the real-AWS footgun.
 
@@ -155,7 +158,12 @@ I used Cursor for scaffolding, boilerplate, tests, and first drafts. I reviewed 
 
 ## Postman
 
-Import `postman/Ahya_Expense_Tracker.postman_collection.json` and `postman/local.postman_environment.json` (or open the workspace collection below).
+Import the files from the repo (this is the copy with saved examples):
+
+1. Postman → **Import** → `postman/Ahya_Expense_Tracker.postman_collection.json`
+2. Import `postman/local.postman_environment.json` and select **Ahya Local** (`baseUrl=http://localhost:8000`, empty tokens)
+
+Do **not** rely on a shared workspace link — personal workspaces are private to me, and a cloud sync without a re-import can miss the captured examples. The JSON in `postman/` is the source of truth for reviewers.
 
 **Run order:** Auth → Login first (test script saves tokens). Worker must be up for Notifications and Imports. Examples are real captures with tokens/signatures redacted.
 
@@ -172,8 +180,6 @@ Optional Newman:
 npx newman run postman/Ahya_Expense_Tracker.postman_collection.json \
   -e postman/local.postman_environment.json
 ```
-
-Workspace: [Ahya Expense Tracker API](https://huzaifanaseer.postman.co/workspace/My-Workspace~fd297846-a2a5-4e03-8734-3fb00643d7c5/collection/45454009-0bd94b44-cfaa-4733-a1e1-ee8f75c8ea73) · environment **Ahya Local**.
 
 ## Short answers
 
